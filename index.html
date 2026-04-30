@@ -222,14 +222,6 @@
   .save-btn:active { transform: scale(0.98); }
   .save-btn:disabled { background: var(--bg3); color: var(--text3); cursor: default; }
   .save-btn:disabled:active { transform: none; }
-  .add-rest-btn {
-    width: 100%; padding: 11px; border-radius: var(--radius);
-    border: 0.5px solid var(--border2); background: transparent; color: var(--text2);
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
-    cursor: pointer; transition: background 0.15s, transform 0.1s;
-    margin: 0 0 16px;
-  }
-  .add-rest-btn:active { background: var(--bg3); transform: scale(0.98); }
 
   /* Active Workout Screen */
   .workout-body {
@@ -336,9 +328,6 @@
       <span style="width:24px"></span>
     </div>
     <div class="exercise-list" id="exercise-list"></div>
-    <div style="padding: 8px 16px 0;">
-      <button class="add-rest-btn" id="btn-add-rest">+ Add Rest</button>
-    </div>
     <div class="form-divider"></div>
     <div class="form-section">
       <div class="form-label">Routine name *</div>
@@ -622,17 +611,6 @@ document.getElementById('btn-back-edit').addEventListener('click', () => {
   goHome();
 });
 
-document.getElementById('btn-add-rest').addEventListener('click', () => {
-  const rows = getExRows();
-  rows.push({ name: 'Rest', sets: '1', time: '60' });
-  renderExerciseList(rows);
-  // Auto-focus the time field on the new rest row so user can change it immediately
-  const allRows = document.getElementById('exercise-list').querySelectorAll('.ex-row');
-  const lastRow = allRows[allRows.length - 1];
-  const timeInput = lastRow.querySelectorAll('.ex-num-input')[1];
-  timeInput.focus();
-  timeInput.select();
-});
 
 // --- WORKOUT ---
 function buildSteps(routine) {
