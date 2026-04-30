@@ -1,6 +1,6 @@
 {
-  "name": "Routines",
-  "short_name": "Routines",
+  "name": "iTrain",
+  "short_name": "iTrain",
   "description": "Audio-guided workout tracker",
   "start_url": ".",
   "display": "standalone",
