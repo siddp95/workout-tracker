@@ -167,7 +167,9 @@
     display: flex; gap: 8px; align-items: center;
     margin-bottom: 8px;
   }
-  .drag-handle { color: var(--text3); font-size: 14px; flex-shrink: 0; cursor: grab; padding: 4px 0; }
+  .drag-handle { color: var(--text3); font-size: 14px; flex-shrink: 0; cursor: grab; padding: 4px 0; touch-action: none; user-select: none; }
+  .ex-row.dragging { opacity: 0.95; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border-radius: var(--radius-sm); }
+  .drag-placeholder { background: var(--bg3); border: 1px dashed var(--border); border-radius: var(--radius-sm); flex-shrink: 0; margin-bottom: 8px; }
   .ex-name-input {
     flex: 1; background: var(--bg2); border: 0.5px solid var(--border2);
     border-radius: var(--radius-sm); color: var(--text);
@@ -913,6 +915,65 @@ document.getElementById('btn-done').addEventListener('click', () => {
   stopWorkout();
   goHome();
 });
+
+// --- DRAG TO REORDER ---
+(function initDragToReorder() {
+  const list = document.getElementById('exercise-list');
+  let dragging = null, placeholder = null, offsetY = 0;
+
+  list.addEventListener('pointerdown', e => {
+    if (!e.target.closest('.drag-handle')) return;
+    const row = e.target.closest('.ex-row');
+    if (!row) return;
+    e.preventDefault();
+
+    const rect = row.getBoundingClientRect();
+    offsetY = e.clientY - rect.top;
+
+    // Placeholder holds the visual gap while row floats
+    placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = rect.height + 'px';
+    row.parentNode.insertBefore(placeholder, row);
+
+    // Float the row using fixed positioning
+    row.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;z-index:999;margin:0;`;
+    row.classList.add('dragging');
+    dragging = row;
+
+    // Capture pointer so we get events even if finger leaves the list
+    list.setPointerCapture(e.pointerId);
+  });
+
+  list.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    dragging.style.top = (e.clientY - offsetY) + 'px';
+
+    // Move placeholder to show where the row will land
+    const siblings = [...list.querySelectorAll('.ex-row:not(.dragging)')];
+    const insertBefore = siblings.find(r => {
+      const { top, height } = r.getBoundingClientRect();
+      return e.clientY < top + height / 2;
+    });
+    if (insertBefore) list.insertBefore(placeholder, insertBefore);
+    else list.appendChild(placeholder);
+  });
+
+  const endDrag = () => {
+    if (!dragging) return;
+    // Drop row where placeholder is, then clean up
+    placeholder.parentNode.insertBefore(dragging, placeholder);
+    placeholder.remove();
+    dragging.style.cssText = '';
+    dragging.classList.remove('dragging');
+    dragging = null;
+    placeholder = null;
+  };
+
+  list.addEventListener('pointerup', endDrag);
+  list.addEventListener('pointercancel', endDrag);
+})();
 
 // --- INIT ---
 renderHome();

@@ -1,7 +1,7 @@
 // Bump this version string whenever you push an update.
 // Changing it triggers the browser to install the new SW and
 // replace the old cache — that's how installed users get updates.
-const CACHE_VERSION = 'routines-v1';
+const CACHE_VERSION = 'routines-v2';
 
 const CORE_FILES = [
   './',
