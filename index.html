@@ -136,6 +136,14 @@
   .tag-dot-cardio { background: var(--amber); }
   .tag-dot-none { background: var(--text3); }
 
+  .delete-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: transparent; border: 0.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; transition: background 0.15s, transform 0.1s;
+    font-size: 15px;
+  }
+  .delete-btn:active { background: rgba(226,75,74,0.15); transform: scale(0.92); }
   .play-btn {
     width: 38px; height: 38px; border-radius: 50%;
     background: var(--text); display: flex; align-items: center; justify-content: center;
@@ -491,6 +499,7 @@ function renderHome() {
           <div class="routine-card-meta">${r.exercises.length} exercise${r.exercises.length!==1?'s':''} · ${mins} min${tagText}</div>
           ${r.notes ? `<div class="routine-card-note">${r.notes}</div>` : ''}
         </div>
+        <div class="delete-btn" data-delete="${r.id}">🗑</div>
         <div class="play-btn" data-play="${r.id}"><div class="play-triangle"></div></div>
       </div>`;
   }).join('') + '<div class="no-routines-pad"></div>';
@@ -498,6 +507,7 @@ function renderHome() {
   list.querySelectorAll('.routine-card').forEach(card => {
     card.addEventListener('click', e => {
       if (e.target.closest('[data-play]')) return;
+      if (e.target.closest('[data-delete]')) return;
       openEdit(card.dataset.id);
     });
   });
@@ -505,6 +515,19 @@ function renderHome() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       startWorkout(btn.dataset.play);
+    });
+  });
+  list.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.delete;
+      const routine = routines.find(r => r.id === id);
+      if (!routine) return;
+      if (confirm(`Delete "${routine.name}"? This cannot be undone.`)) {
+        routines = routines.filter(r => r.id !== id);
+        save();
+        renderHome();
+      }
     });
   });
 }
