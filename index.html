@@ -79,6 +79,21 @@
   .topbar-title { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
   .topbar-action { font-size: 14px; color: var(--text2); cursor: pointer; }
   .topbar-action.danger { color: var(--red); }
+  .menu-btn { font-size: 22px; color: var(--text2); cursor: pointer; padding: 4px; line-height: 1; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .menu-dropdown {
+    position: absolute; top: 60px; right: 16px;
+    background: var(--bg3); border: 0.5px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden;
+    z-index: 100; min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .menu-dropdown.hidden { display: none; }
+  .menu-item {
+    padding: 14px 18px; font-size: 15px; color: var(--text);
+    cursor: pointer; display: flex; align-items: center; gap: 10px;
+  }
+  .menu-item:not(:last-child) { border-bottom: 0.5px solid var(--border); }
+  .menu-item:active { background: var(--bg4); }
 
   .scroll-area {
     flex: 1; overflow-y: auto; padding: 0 16px;
@@ -297,9 +312,15 @@
   <!-- HOME SCREEN -->
   <div class="screen active" id="screen-home">
     <div class="safe-top"></div>
-    <div class="topbar">
+    <div class="topbar" style="position:relative;">
       <span class="topbar-title">iTrain</span>
+      <span class="menu-btn" id="btn-menu">⋯</span>
+      <div class="menu-dropdown hidden" id="menu-dropdown">
+        <div class="menu-item" id="menu-export">📤 Export Routines</div>
+        <div class="menu-item" id="menu-import">📥 Import Routines</div>
+      </div>
     </div>
+    <input type="file" id="import-file-input" accept=".json" style="display:none;">
     <div class="tag-row" id="tag-row">
       <div class="tag-pill active-tag" data-tag="all">All</div>
       <div class="tag-pill stretch" data-tag="Stretch">Stretch</div>
@@ -932,6 +953,78 @@ document.getElementById('btn-end-workout').addEventListener('click', () => {
 document.getElementById('btn-done').addEventListener('click', () => {
   stopWorkout();
   goHome();
+});
+
+// --- SETTINGS MENU ---
+const menuBtn = document.getElementById('btn-menu');
+const menuDropdown = document.getElementById('menu-dropdown');
+
+menuBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  menuDropdown.classList.toggle('hidden');
+});
+
+document.addEventListener('click', () => menuDropdown.classList.add('hidden'));
+
+// --- EXPORT ---
+document.getElementById('menu-export').addEventListener('click', () => {
+  menuDropdown.classList.add('hidden');
+  const data = JSON.stringify({ version: 1, routines }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0, 10);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `itrain-export-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- IMPORT ---
+document.getElementById('menu-import').addEventListener('click', () => {
+  menuDropdown.classList.add('hidden');
+  document.getElementById('import-file-input').click();
+});
+
+document.getElementById('import-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const parsed = JSON.parse(evt.target.result);
+      const incoming = parsed.routines || parsed; // support both {version,routines} and raw array
+      if (!Array.isArray(incoming)) throw new Error('Invalid format');
+
+      let imported = 0, renamed = 0;
+      incoming.forEach(r => {
+        // Generate a unique name
+        let name = r.name || 'Unnamed';
+        const existingNames = () => routines.map(x => x.name);
+        if (existingNames().includes(name)) {
+          let n = 1;
+          while (existingNames().includes(`${name}_${n}`)) n++;
+          name = `${name}_${n}`;
+          renamed++;
+        }
+        routines.push({ ...r, id: genId(), name });
+        imported++;
+      });
+
+      save();
+      renderHome();
+      // Reset input so same file can be re-imported if needed
+      e.target.value = '';
+
+      const msg = renamed > 0
+        ? `✓ ${imported} routine${imported !== 1 ? 's' : ''} imported. ${renamed} renamed to avoid conflicts.`
+        : `✓ ${imported} routine${imported !== 1 ? 's' : ''} imported.`;
+      alert(msg);
+    } catch (err) {
+      alert('Import failed — make sure you selected a valid iTrain export file.');
+    }
+  };
+  reader.readAsText(file);
 });
 
 // --- DRAG TO REORDER ---
