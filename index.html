@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Routines">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#0a0a0a">
+<title>Routines</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #141414;
+    --bg3: #1c1c1c;
+    --bg4: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #ffffff;
+    --text2: #888888;
+    --text3: #555555;
+    --accent: #ffffff;
+    --green: #1D9E75;
+    --green-light: #9FE1CB;
+    --blue: #378ADD;
+    --blue-light: #B5D4F4;
+    --amber: #BA7517;
+    --amber-light: #FAC775;
+    --red: #E24B4A;
+    --warn: #EF9F27;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 44px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; width: 100%;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    position: fixed;
+  }
+
+  #app {
+    height: 100%; width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+  .screen.active { transform: translateX(0); }
+  .screen.behind { transform: translateX(-30%); }
+
+  .safe-top { height: calc(var(--safe-top) + 8px); flex-shrink: 0; }
+  .safe-bottom { height: calc(var(--safe-bottom) + 8px); flex-shrink: 0; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px 16px;
+    flex-shrink: 0;
+  }
+  .topbar-title { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .topbar-action { font-size: 14px; color: var(--text2); cursor: pointer; }
+  .topbar-action.danger { color: var(--red); }
+
+  .scroll-area {
+    flex: 1; overflow-y: auto; padding: 0 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* Tags */
+  .tag-row { display: flex; gap: 8px; padding: 0 16px 16px; overflow-x: auto; flex-shrink: 0; }
+  .tag-row::-webkit-scrollbar { display: none; }
+  .tag-pill {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    white-space: nowrap; cursor: pointer; border: 0.5px solid var(--border2);
+    background: var(--bg2); color: var(--text2);
+    transition: all 0.15s;
+  }
+  .tag-pill.active-tag { background: var(--text); color: var(--bg); border-color: transparent; }
+  .tag-pill.stretch { background: #0F6E56; color: #9FE1CB; border-color: transparent; }
+  .tag-pill.strength { background: #185FA5; color: #B5D4F4; border-color: transparent; }
+  .tag-pill.cardio { background: #854F0B; color: #FAC775; border-color: transparent; }
+
+  /* Routine Cards */
+  .routine-card {
+    background: var(--bg2); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    margin-bottom: 10px; display: flex; align-items: center;
+    cursor: pointer; transition: background 0.15s;
+    gap: 12px;
+  }
+  .routine-card:active { background: var(--bg3); }
+  .routine-card-info { flex: 1; min-width: 0; }
+  .routine-card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .routine-card-meta { font-size: 12px; color: var(--text2); }
+  .routine-tag-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .tag-dot-stretch { background: var(--green); }
+  .tag-dot-strength { background: var(--blue); }
+  .tag-dot-cardio { background: var(--amber); }
+  .tag-dot-none { background: var(--text3); }
+
+  .play-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--text); display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; transition: transform 0.1s;
+  }
+  .play-btn:active { transform: scale(0.92); }
+  .play-triangle {
+    width: 0; height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 12px solid var(--bg);
+    margin-left: 3px;
+  }
+
+  /* FAB */
+  .fab {
+    position: absolute; bottom: calc(var(--safe-bottom) + 24px); left: 50%;
+    transform: translateX(-50%);
+    width: 54px; height: 54px; border-radius: 50%;
+    background: var(--text); display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: var(--bg); font-weight: 300; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+    z-index: 10;
+  }
+  .fab:active { transform: translateX(-50%) scale(0.93); }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--text3); font-size: 14px; line-height: 1.6;
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* Add/Edit Screen */
+  .col-header-row {
+    display: flex; gap: 8px; padding: 0 16px 8px;
+    align-items: center; flex-shrink: 0;
+  }
+  .col-header-row span { font-size: 10px; font-weight: 500; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; }
+
+  .exercise-list { padding: 0 16px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .exercise-list::-webkit-scrollbar { display: none; }
+
+  .ex-row {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 8px;
+  }
+  .drag-handle { color: var(--text3); font-size: 14px; flex-shrink: 0; cursor: grab; padding: 4px 0; }
+  .ex-name-input {
+    flex: 1; background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 10px 10px; outline: none; min-width: 0;
+    -webkit-appearance: none;
+  }
+  .ex-name-input:focus { border-color: rgba(255,255,255,0.3); }
+  .ex-num-input {
+    width: 44px; background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    padding: 10px 6px; outline: none; text-align: center;
+    -webkit-appearance: none;
+  }
+  .ex-num-input:focus { border-color: rgba(255,255,255,0.3); }
+  .ex-add-btn { color: var(--text2); font-size: 18px; padding: 4px; cursor: pointer; flex-shrink: 0; }
+  .ex-del-btn { color: var(--text3); font-size: 14px; padding: 4px; cursor: pointer; flex-shrink: 0; }
+
+  .form-section { padding: 16px 16px 0; flex-shrink: 0; }
+  .form-divider { height: 0.5px; background: var(--border); margin: 0 16px 16px; }
+  .form-label { font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .form-input {
+    width: 100%; background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 15px;
+    padding: 12px 14px; outline: none; -webkit-appearance: none;
+    margin-bottom: 16px;
+  }
+  .form-input:focus { border-color: rgba(255,255,255,0.3); }
+  .tag-options { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tag-option {
+    padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tag-option.sel-stretch { background: #0F6E56; color: #9FE1CB; border-color: transparent; }
+  .tag-option.sel-strength { background: #185FA5; color: #B5D4F4; border-color: transparent; }
+  .tag-option.sel-cardio { background: #854F0B; color: #FAC775; border-color: transparent; }
+
+  .save-btn {
+    width: 100%; padding: 15px; border-radius: var(--radius);
+    border: none; background: var(--text); color: var(--bg);
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+    margin-bottom: 8px;
+  }
+  .save-btn:active { transform: scale(0.98); }
+  .save-btn:disabled { background: var(--bg3); color: var(--text3); cursor: default; }
+  .save-btn:disabled:active { transform: none; }
+
+  /* Active Workout Screen */
+  .workout-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    gap: 0;
+  }
+  .ex-label { font-size: 12px; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+  .ex-big-name { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center; margin-bottom: 6px; line-height: 1.2; }
+  .set-info { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+
+  .ring-container { position: relative; width: 200px; height: 200px; margin-bottom: 28px; }
+  .ring-svg { width: 200px; height: 200px; transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: var(--bg3); stroke-width: 10; }
+  .ring-progress {
+    fill: none; stroke: var(--text); stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.3s;
+  }
+  .ring-progress.warn { stroke: var(--warn); }
+  .ring-progress.danger { stroke: var(--red); }
+  .ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-number { font-size: 52px; font-weight: 300; font-family: 'DM Mono', monospace; letter-spacing: -2px; line-height: 1; }
+  .ring-label { font-size: 11px; color: var(--text3); margin-top: 4px; letter-spacing: .04em; }
+
+  .next-up-label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+  .next-up-name { font-size: 14px; color: var(--text2); font-weight: 500; margin-bottom: 32px; min-height: 20px; }
+
+  .progress-dots { display: flex; gap: 6px; margin-bottom: 28px; flex-wrap: wrap; justify-content: center; max-width: 200px; }
+  .pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg4); transition: all 0.3s; }
+  .pdot.pdone { background: var(--text3); }
+  .pdot.pcur { width: 18px; border-radius: 3px; background: var(--text); }
+
+  .workout-btns { display: flex; gap: 12px; width: 100%; }
+  .workout-btn {
+    flex: 1; padding: 14px; border-radius: var(--radius);
+    border: 0.5px solid var(--border2); background: var(--bg2);
+    color: var(--text2); font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .workout-btn:active { background: var(--bg3); transform: scale(0.97); }
+
+  /* Complete screen */
+  .complete-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px; text-align: center;
+  }
+  .complete-icon { font-size: 56px; margin-bottom: 20px; }
+  .complete-title { font-size: 30px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .complete-sub { font-size: 15px; color: var(--text2); margin-bottom: 40px; }
+  .complete-btn {
+    width: 100%; padding: 15px; border-radius: var(--radius);
+    border: none; background: var(--text); color: var(--bg);
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+    cursor: pointer;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .no-routines-pad { height: 80px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="screen-home">
+    <div class="safe-top"></div>
+    <div class="topbar">
+      <span class="topbar-title">Routines</span>
+    </div>
+    <div class="tag-row" id="tag-row">
+      <div class="tag-pill active-tag" data-tag="all">All</div>
+      <div class="tag-pill stretch" data-tag="Stretch">Stretch</div>
+      <div class="tag-pill strength" data-tag="Strength">Strength</div>
+      <div class="tag-pill cardio" data-tag="Cardio">Cardio</div>
+    </div>
+    <div class="scroll-area" id="routine-list" style="padding-bottom:90px"></div>
+    <div class="fab" id="fab-add">+</div>
+    <div class="safe-bottom"></div>
+  </div>
+
+  <!-- ADD/EDIT SCREEN -->
+  <div class="screen" id="screen-edit">
+    <div class="safe-top"></div>
+    <div class="topbar">
+      <span class="topbar-action" id="btn-back-edit">← Back</span>
+      <span class="topbar-title" id="edit-title">New Routine</span>
+      <span style="width:56px"></span>
+    </div>
+    <div class="col-header-row">
+      <span style="flex:0 0 18px"></span>
+      <span style="flex:1">Exercise</span>
+      <span style="width:44px;text-align:center">Sets</span>
+      <span style="width:44px;text-align:center">Sec</span>
+      <span style="width:28px"></span>
+      <span style="width:24px"></span>
+    </div>
+    <div class="exercise-list" id="exercise-list"></div>
+    <div class="form-divider"></div>
+    <div class="form-section">
+      <div class="form-label">Routine name *</div>
+      <input class="form-input" id="routine-name-input" type="text" placeholder="e.g. Morning Stretch" autocomplete="off" />
+      <div class="form-label">Tag</div>
+      <div class="tag-options">
+        <div class="tag-option" data-tag="Stretch">Stretch</div>
+        <div class="tag-option" data-tag="Strength">Strength</div>
+        <div class="tag-option" data-tag="Cardio">Cardio</div>
+      </div>
+      <button class="save-btn" id="save-btn" disabled>Save Routine</button>
+    </div>
+    <div class="safe-bottom"></div>
+  </div>
+
+  <!-- ACTIVE WORKOUT SCREEN -->
+  <div class="screen" id="screen-workout">
+    <div class="safe-top"></div>
+    <div class="topbar">
+      <span class="topbar-action danger" id="btn-end-workout">✕ End</span>
+      <span class="topbar-title" id="workout-routine-name" style="font-size:16px"></span>
+      <span style="width:56px"></span>
+    </div>
+    <div class="workout-body">
+      <div class="ex-label">Now</div>
+      <div class="ex-big-name" id="w-ex-name">—</div>
+      <div class="set-info" id="w-set-info"></div>
+      <div class="ring-container">
+        <svg class="ring-svg" viewBox="0 0 200 200">
+          <circle class="ring-track" cx="100" cy="100" r="88"/>
+          <circle class="ring-progress" id="ring-progress" cx="100" cy="100" r="88"
+            stroke-dasharray="552.9" stroke-dashoffset="0"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-number" id="w-timer">—</div>
+          <div class="ring-label">seconds</div>
+        </div>
+      </div>
+      <div class="next-up-label" id="next-label">Up next</div>
+      <div class="next-up-name" id="w-next-name"></div>
+      <div class="progress-dots" id="progress-dots"></div>
+      <div class="workout-btns">
+        <button class="workout-btn" id="btn-pause">⏸ Pause</button>
+        <button class="workout-btn" id="btn-skip">Skip →</button>
+      </div>
+    </div>
+    <div class="safe-bottom"></div>
+  </div>
+
+  <!-- COMPLETE SCREEN -->
+  <div class="screen" id="screen-complete">
+    <div class="safe-top"></div>
+    <div class="complete-body">
+      <div class="complete-icon">✓</div>
+      <div class="complete-title">Workout Complete</div>
+      <div class="complete-sub" id="complete-sub">Great work.</div>
+      <button class="complete-btn" id="btn-done">Back to Routines</button>
+    </div>
+    <div class="safe-bottom"></div>
+  </div>
+
+</div>
+
+<script>
+const CIRCUMFERENCE = 2 * Math.PI * 88;
+let routines = JSON.parse(localStorage.getItem('routines') || '[]');
+let editingId = null;
+let selectedTag = null;
+let activeFilter = 'all';
+
+let workout = {
+  routine: null,
+  steps: [],
+  stepIndex: 0,
+  timeLeft: 0,
+  totalTime: 0,
+  paused: false,
+  interval: null,
+  speaking: false,
+  audioQueue: [],
+  audioProcessing: false,
+  skipRequested: false,
+};
+
+function save() {
+  localStorage.setItem('routines', JSON.stringify(routines));
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// --- NAVIGATION ---
+function showScreen(id, direction = 'forward') {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active', 'behind');
+  });
+  if (direction === 'forward') {
+    const prev = document.querySelector('.screen.active');
+    if (prev) prev.classList.add('behind');
+  }
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'behind'));
+  document.getElementById('screen-home').classList.add('active');
+  renderHome();
+}
+
+// --- HOME ---
+function renderHome() {
+  const list = document.getElementById('routine-list');
+  const filtered = activeFilter === 'all'
+    ? routines
+    : routines.filter(r => r.tag === activeFilter);
+
+  if (routines.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⊕</div>No routines yet.<br>Tap + to create your first one.</div>`;
+    return;
+  }
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⊘</div>No ${activeFilter} routines yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const totalSets = r.exercises.reduce((a, e) => a + Number(e.sets), 0);
+    const totalSec = r.exercises.reduce((a, e) => a + Number(e.sets) * Number(e.time), 0);
+    const mins = Math.ceil(totalSec / 60);
+    const tagClass = r.tag ? `tag-dot-${r.tag.toLowerCase()}` : 'tag-dot-none';
+    const tagText = r.tag ? ` · ${r.tag}` : '';
+    return `
+      <div class="routine-card" data-id="${r.id}">
+        <div class="routine-tag-dot ${tagClass}"></div>
+        <div class="routine-card-info">
+          <div class="routine-card-name">${r.name}</div>
+          <div class="routine-card-meta">${r.exercises.length} exercise${r.exercises.length!==1?'s':''} · ${mins} min${tagText}</div>
+        </div>
+        <div class="play-btn" data-play="${r.id}"><div class="play-triangle"></div></div>
+      </div>`;
+  }).join('') + '<div class="no-routines-pad"></div>';
+
+  list.querySelectorAll('.routine-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('[data-play]')) return;
+      openEdit(card.dataset.id);
+    });
+  });
+  list.querySelectorAll('[data-play]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      startWorkout(btn.dataset.play);
+    });
+  });
+}
+
+document.getElementById('tag-row').addEventListener('click', e => {
+  const pill = e.target.closest('.tag-pill');
+  if (!pill) return;
+  activeFilter = pill.dataset.tag;
+  document.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('active-tag'));
+  pill.classList.add('active-tag');
+  renderHome();
+});
+
+document.getElementById('fab-add').addEventListener('click', () => openEdit(null));
+
+// --- EDIT SCREEN ---
+function openEdit(id) {
+  editingId = id;
+  selectedTag = null;
+  const routine = id ? routines.find(r => r.id === id) : null;
+
+  document.getElementById('edit-title').textContent = id ? 'Edit Routine' : 'New Routine';
+  document.getElementById('routine-name-input').value = routine ? routine.name : '';
+
+  document.querySelectorAll('.tag-option').forEach(t => {
+    t.className = 'tag-option';
+    if (routine && routine.tag === t.dataset.tag) {
+      selectedTag = routine.tag;
+      t.classList.add(`sel-${routine.tag.toLowerCase()}`);
+    }
+  });
+
+  const exercises = routine ? routine.exercises : [{ name: '', sets: '', time: '' }];
+  renderExerciseList(exercises);
+  updateSaveBtn();
+
+  showScreen('screen-edit');
+}
+
+function renderExerciseList(exercises) {
+  const list = document.getElementById('exercise-list');
+  list.innerHTML = '';
+  exercises.forEach((ex, i) => {
+    list.appendChild(makeExRow(ex, i));
+  });
+}
+
+function makeExRow(ex, i) {
+  const row = document.createElement('div');
+  row.className = 'ex-row';
+  row.dataset.index = i;
+  row.innerHTML = `
+    <span class="drag-handle">⠿</span>
+    <input class="ex-name-input" placeholder="Exercise name" value="${ex.name || ''}" type="text" autocomplete="off" />
+    <input class="ex-num-input" placeholder="—" value="${ex.sets || ''}" type="number" min="1" />
+    <input class="ex-num-input" placeholder="—" value="${ex.time || ''}" type="number" min="1" />
+    <span class="ex-add-btn">+</span>
+    <span class="ex-del-btn">✕</span>
+  `;
+
+  row.querySelector('.ex-add-btn').addEventListener('click', () => {
+    const rows = getExRows();
+    rows.splice(i + 1, 0, { name: '', sets: '', time: '' });
+    renderExerciseList(rows);
+  });
+
+  row.querySelector('.ex-del-btn').addEventListener('click', () => {
+    const rows = getExRows();
+    if (rows.length <= 1) { rows[0] = { name: '', sets: '', time: '' }; renderExerciseList(rows); return; }
+    rows.splice(i, 1);
+    renderExerciseList(rows);
+  });
+
+  return row;
+}
+
+function getExRows() {
+  return Array.from(document.getElementById('exercise-list').querySelectorAll('.ex-row')).map(row => ({
+    name: row.querySelector('.ex-name-input').value.trim(),
+    sets: row.querySelectorAll('.ex-num-input')[0].value,
+    time: row.querySelectorAll('.ex-num-input')[1].value,
+  }));
+}
+
+document.getElementById('routine-name-input').addEventListener('input', updateSaveBtn);
+
+function updateSaveBtn() {
+  const name = document.getElementById('routine-name-input').value.trim();
+  document.getElementById('save-btn').disabled = !name;
+}
+
+document.querySelectorAll('.tag-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const tag = opt.dataset.tag;
+    if (selectedTag === tag) {
+      selectedTag = null;
+      opt.className = 'tag-option';
+    } else {
+      selectedTag = tag;
+      document.querySelectorAll('.tag-option').forEach(o => o.className = 'tag-option');
+      opt.classList.add(`sel-${tag.toLowerCase()}`);
+    }
+  });
+});
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  const name = document.getElementById('routine-name-input').value.trim();
+  if (!name) return;
+  const exercises = getExRows().filter(e => e.name);
+  if (exercises.length === 0) { alert('Add at least one exercise.'); return; }
+
+  if (editingId) {
+    const idx = routines.findIndex(r => r.id === editingId);
+    routines[idx] = { id: editingId, name, tag: selectedTag, exercises };
+  } else {
+    routines.push({ id: genId(), name, tag: selectedTag, exercises });
+  }
+  save();
+  goHome();
+});
+
+document.getElementById('btn-back-edit').addEventListener('click', () => {
+  goHome();
+});
+
+// --- WORKOUT ---
+function buildSteps(routine) {
+  const steps = [];
+  for (const ex of routine.exercises) {
+    const sets = Math.max(1, parseInt(ex.sets) || 1);
+    const time = Math.max(1, parseInt(ex.time) || 1);
+    for (let s = 1; s <= sets; s++) {
+      steps.push({ name: ex.name, set: s, totalSets: sets, time });
+    }
+  }
+  return steps;
+}
+
+function startWorkout(id) {
+  const routine = routines.find(r => r.id === id);
+  if (!routine || routine.exercises.length === 0) return;
+
+  stopWorkout();
+
+  workout.routine = routine;
+  workout.steps = buildSteps(routine);
+  workout.stepIndex = 0;
+  workout.paused = false;
+  workout.skipRequested = false;
+
+  document.getElementById('workout-routine-name').textContent = routine.name;
+
+  renderProgressDots();
+  showScreen('screen-workout');
+
+  setTimeout(() => runStep(), 300);
+}
+
+function renderProgressDots() {
+  const container = document.getElementById('progress-dots');
+  // Dots per unique exercise (not per set)
+  const exCount = workout.routine.exercises.length;
+  container.innerHTML = Array.from({ length: exCount }, (_, i) => `<div class="pdot" id="pdot-${i}"></div>`).join('');
+}
+
+function getExerciseIndex() {
+  let count = 0;
+  for (let i = 0; i < workout.routine.exercises.length; i++) {
+    const ex = workout.routine.exercises[i];
+    const sets = Math.max(1, parseInt(ex.sets) || 1);
+    count += sets;
+    if (workout.stepIndex < count) return i;
+  }
+  return workout.routine.exercises.length - 1;
+}
+
+function updateDots() {
+  const curEx = getExerciseIndex();
+  workout.routine.exercises.forEach((_, i) => {
+    const dot = document.getElementById(`pdot-${i}`);
+    if (!dot) return;
+    dot.className = 'pdot';
+    if (i < curEx) dot.classList.add('pdone');
+    else if (i === curEx) dot.classList.add('pcur');
+  });
+}
+
+function runStep() {
+  if (workout.stepIndex >= workout.steps.length) {
+    finishWorkout();
+    return;
+  }
+
+  const step = workout.steps[workout.stepIndex];
+  workout.timeLeft = step.time;
+  workout.totalTime = step.time;
+
+  updateUI(step);
+  updateDots();
+
+  const isRest = step.name.toLowerCase() === 'rest';
+  const audio = [];
+
+  if (isRest) {
+    audio.push({ type: 'speak', text: 'Rest' });
+  } else {
+    const setLabel = step.totalSets > 1 ? `, set ${step.set}` : '';
+    audio.push({ type: 'speak', text: `${step.name}${setLabel}` });
+  }
+  audio.push({ type: 'pause', ms: 1000 });
+  audio.push({ type: 'speak', text: 'Begin' });
+  audio.push({ type: 'timer' });
+
+  processAudioQueue(audio);
+}
+
+function processAudioQueue(queue) {
+  workout.audioQueue = queue;
+  workout.audioProcessing = true;
+  workout.skipRequested = false;
+  nextAudio();
+}
+
+function nextAudio() {
+  if (workout.skipRequested) {
+    stopCurrentAudio();
+    advanceStep();
+    return;
+  }
+  if (!workout.audioQueue.length) {
+    workout.audioProcessing = false;
+    return;
+  }
+  const item = workout.audioQueue.shift();
+  if (item.type === 'speak') {
+    speak(item.text, nextAudio);
+  } else if (item.type === 'pause') {
+    if (workout.paused) {
+      waitForResume(() => setTimeout(nextAudio, item.ms));
+    } else {
+      setTimeout(nextAudio, item.ms);
+    }
+  } else if (item.type === 'timer') {
+    startTimer();
+  }
+}
+
+function waitForResume(cb) {
+  const check = setInterval(() => {
+    if (!workout.paused) { clearInterval(check); cb(); }
+  }, 200);
+}
+
+let currentUtterance = null;
+function speak(text, cb) {
+  if (!window.speechSynthesis) { cb && cb(); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.95;
+  u.pitch = 1;
+  u.volume = 1;
+  u.onend = () => { currentUtterance = null; if (!workout.skipRequested) cb && cb(); };
+  u.onerror = () => { currentUtterance = null; cb && cb(); };
+  currentUtterance = u;
+  if (workout.paused) {
+    waitForResume(() => { if (!workout.skipRequested) window.speechSynthesis.speak(u); else cb && cb(); });
+  } else {
+    window.speechSynthesis.speak(u);
+  }
+}
+
+function stopCurrentAudio() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (workout.interval) clearInterval(workout.interval);
+  workout.interval = null;
+}
+
+function startTimer() {
+  if (workout.interval) clearInterval(workout.interval);
+  updateTimerUI();
+
+  workout.interval = setInterval(() => {
+    if (workout.paused || workout.skipRequested) return;
+
+    workout.timeLeft--;
+    updateTimerUI();
+
+    if (workout.timeLeft === 10) {
+      speak('10 seconds', null);
+    }
+
+    if (workout.timeLeft === 5) {
+      countdownFrom5();
+      return;
+    }
+
+    if (workout.timeLeft <= 0) {
+      clearInterval(workout.interval);
+      workout.interval = null;
+      setTimeout(() => {
+        speak('Next', () => {
+          setTimeout(advanceStep, 1000);
+        });
+      }, 200);
+    }
+  }, 1000);
+}
+
+function countdownFrom5() {
+  clearInterval(workout.interval);
+  workout.interval = null;
+  const counts = ['5', '4', '3', '2', '1'];
+  let i = 0;
+  function sayNext() {
+    if (workout.skipRequested) { advanceStep(); return; }
+    if (i >= counts.length) {
+      setTimeout(() => {
+        if (workout.skipRequested) { advanceStep(); return; }
+        const isLast = workout.stepIndex >= workout.steps.length - 1;
+        speak(isLast ? 'Workout complete' : 'Next', () => {
+          if (!isLast) setTimeout(advanceStep, 1000);
+          else setTimeout(finishWorkout, 500);
+        });
+      }, 200);
+      return;
+    }
+    workout.timeLeft = parseInt(counts[i]);
+    updateTimerUI();
+    speak(counts[i], () => {
+      i++;
+      if (!workout.skipRequested) setTimeout(sayNext, 200);
+      else advanceStep();
+    });
+  }
+  sayNext();
+}
+
+function updateTimerUI() {
+  const el = document.getElementById('w-timer');
+  const ring = document.getElementById('ring-progress');
+  if (el) el.textContent = Math.max(0, workout.timeLeft);
+  if (ring) {
+    const pct = workout.totalTime > 0 ? workout.timeLeft / workout.totalTime : 0;
+    ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+    ring.className = 'ring-progress';
+    if (workout.timeLeft <= 5) ring.classList.add('danger');
+    else if (workout.timeLeft <= 10) ring.classList.add('warn');
+  }
+}
+
+function updateUI(step) {
+  document.getElementById('w-ex-name').textContent = step.name;
+  document.getElementById('w-set-info').textContent =
+    step.totalSets > 1 ? `Set ${step.set} of ${step.totalSets} · ${step.time}s` : `${step.time} seconds`;
+  document.getElementById('w-timer').textContent = step.time;
+
+  const ring = document.getElementById('ring-progress');
+  ring.style.strokeDashoffset = 0;
+  ring.className = 'ring-progress';
+
+  const nextStep = workout.steps[workout.stepIndex + 1];
+  const nextLabel = document.getElementById('next-label');
+  const nextName = document.getElementById('w-next-name');
+  if (nextStep) {
+    nextLabel.style.visibility = 'visible';
+    nextName.textContent = `${nextStep.name} · ${nextStep.time}s`;
+  } else {
+    nextLabel.style.visibility = 'hidden';
+    nextName.textContent = '';
+  }
+}
+
+function advanceStep() {
+  workout.skipRequested = false;
+  stopCurrentAudio();
+  workout.stepIndex++;
+  if (workout.stepIndex >= workout.steps.length) {
+    finishWorkout();
+    return;
+  }
+
+  const nextStep = workout.steps[workout.stepIndex];
+  const nextName2 = document.getElementById('w-next-name');
+  const nextLabel2 = document.getElementById('next-label');
+  const upcoming = workout.steps[workout.stepIndex + 1];
+  if (upcoming) {
+    nextLabel2.style.visibility = 'visible';
+    nextName2.textContent = `${upcoming.name} · ${upcoming.time}s`;
+  } else {
+    nextLabel2.style.visibility = 'hidden';
+    nextName2.textContent = '';
+  }
+
+  setTimeout(() => runStep(), 300);
+}
+
+function finishWorkout() {
+  stopCurrentAudio();
+  const name = workout.routine ? workout.routine.name : 'Routine';
+  document.getElementById('complete-sub').textContent = `${name} finished.`;
+  showScreen('screen-complete');
+}
+
+function stopWorkout() {
+  stopCurrentAudio();
+  workout.skipRequested = true;
+  workout.paused = false;
+  workout.routine = null;
+  workout.steps = [];
+  workout.stepIndex = 0;
+}
+
+document.getElementById('btn-pause').addEventListener('click', () => {
+  workout.paused = !workout.paused;
+  document.getElementById('btn-pause').textContent = workout.paused ? '▶ Resume' : '⏸ Pause';
+  if (workout.paused && window.speechSynthesis) window.speechSynthesis.pause();
+  if (!workout.paused && window.speechSynthesis) window.speechSynthesis.resume();
+});
+
+document.getElementById('btn-skip').addEventListener('click', () => {
+  workout.skipRequested = true;
+  workout.paused = false;
+  document.getElementById('btn-pause').textContent = '⏸ Pause';
+  stopCurrentAudio();
+  setTimeout(advanceStep, 100);
+});
+
+document.getElementById('btn-end-workout').addEventListener('click', () => {
+  stopWorkout();
+  goHome();
+});
+
+document.getElementById('btn-done').addEventListener('click', () => {
+  stopWorkout();
+  goHome();
+});
+
+// --- INIT ---
+renderHome();
+
+// --- SERVICE WORKER ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
