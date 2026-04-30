@@ -112,6 +112,7 @@
   .routine-card-info { flex: 1; min-width: 0; }
   .routine-card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .routine-card-meta { font-size: 12px; color: var(--text2); }
+  .routine-card-note { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .routine-tag-dot {
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   }
@@ -200,6 +201,7 @@
     margin-bottom: 16px;
   }
   .form-input:focus { border-color: rgba(255,255,255,0.3); }
+  .form-textarea { resize: none; height: 72px; line-height: 1.4; }
   .tag-options { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tag-option {
     padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 500;
@@ -336,6 +338,8 @@
         <div class="tag-option" data-tag="Strength">Strength</div>
         <div class="tag-option" data-tag="Cardio">Cardio</div>
       </div>
+      <div class="form-label">Notes</div>
+      <textarea class="form-input form-textarea" id="routine-notes-input" placeholder="e.g. Use 20lb dumbbells · ~45 min" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
       <button class="save-btn" id="save-btn" disabled>Save Routine</button>
     </div>
     <div class="safe-bottom"></div>
@@ -464,6 +468,7 @@ function renderHome() {
         <div class="routine-card-info">
           <div class="routine-card-name">${r.name}</div>
           <div class="routine-card-meta">${r.exercises.length} exercise${r.exercises.length!==1?'s':''} · ${mins} min${tagText}</div>
+          ${r.notes ? `<div class="routine-card-note">${r.notes}</div>` : ''}
         </div>
         <div class="play-btn" data-play="${r.id}"><div class="play-triangle"></div></div>
       </div>`;
@@ -502,6 +507,7 @@ function openEdit(id) {
 
   document.getElementById('edit-title').textContent = id ? 'Edit Routine' : 'New Routine';
   document.getElementById('routine-name-input').value = routine ? routine.name : '';
+  document.getElementById('routine-notes-input').value = routine ? (routine.notes || '') : '';
 
   document.querySelectorAll('.tag-option').forEach(t => {
     t.className = 'tag-option';
@@ -589,12 +595,13 @@ document.getElementById('save-btn').addEventListener('click', () => {
   if (!name) return;
   const exercises = getExRows().filter(e => e.name);
   if (exercises.length === 0) { alert('Add at least one exercise.'); return; }
+  const notes = document.getElementById('routine-notes-input').value.trim();
 
   if (editingId) {
     const idx = routines.findIndex(r => r.id === editingId);
-    routines[idx] = { id: editingId, name, tag: selectedTag, exercises };
+    routines[idx] = { id: editingId, name, tag: selectedTag, exercises, notes };
   } else {
-    routines.push({ id: genId(), name, tag: selectedTag, exercises });
+    routines.push({ id: genId(), name, tag: selectedTag, exercises, notes });
   }
   save();
   goHome();
@@ -733,11 +740,21 @@ function waitForResume(cb) {
 }
 
 let currentUtterance = null;
+function getPreferredVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  // Prefer Samantha (natural iOS female voice), then any en-US female-sounding voice
+  return voices.find(v => v.name === 'Samantha')
+    || voices.find(v => v.lang === 'en-US' && /samantha|karen|moira|tessa|fiona/i.test(v.name))
+    || voices.find(v => v.lang.startsWith('en') && v.localService)
+    || null; // fall back to browser default
+}
+
 function speak(text, cb) {
   if (!window.speechSynthesis) { cb && cb(); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.95;
+  u.voice = getPreferredVoice();
+  u.rate = 0.88;
   u.pitch = 1;
   u.volume = 1;
   u.onend = () => { currentUtterance = null; if (!workout.skipRequested) cb && cb(); };
